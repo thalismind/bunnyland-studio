@@ -6,7 +6,12 @@ import asyncio
 import time
 from dataclasses import replace
 
-from bunnyland.core import CharacterComponent, ControlledBy, IdentityComponent
+from bunnyland.core import (
+    CharacterComponent,
+    ControlledBy,
+    IdentityComponent,
+    MemoryProfileComponent,
+)
 from bunnyland.core.ecs import replace_component
 from bunnyland.foundation.history.mechanics import history_record_for_event
 from bunnyland.imagegen.components import EventImageComponent, EventVideoComponent
@@ -195,6 +200,24 @@ def _journal_resources(actor, character) -> list[JournalResource]:
     return sorted(resources, key=lambda item: (item.occurred_at_epoch, item.id), reverse=True)[:500]
 
 
+def _memory_resources(actor, character) -> list[MemoryResource]:
+    if actor.memory_store is None:
+        raise RuntimeError("memory is not configured")
+    if not character.has_component(MemoryProfileComponent):
+        return []
+    collection = character.get_component(MemoryProfileComponent).vector_collection
+    return [
+        MemoryResource(
+            id=entry.id,
+            text=entry.text,
+            tags=list(entry.tags),
+            source=entry.source,
+            created_at_epoch=entry.created_at_epoch,
+        )
+        for entry in actor.memory_store.search(collection, mode="recent", limit=200)
+    ]
+
+
 def _durable_media_url(actor, item: StudioJournalMomentComponent) -> str:
     if not item.media_source_event_id or not item.media_kind:
         return ""
@@ -222,7 +245,7 @@ def _sync_journal_media(actor, character, media: AddonMediaCapability) -> None:
         if not item.media_job_id or not item.media_kind:
             continue
         job = media.get_character_scene_media_job(item.media_job_id, kind=item.media_kind)
-        durable_url = _durable_media_url(actor, item)
+        durable_url = media.resolve_character_scene_media_url(_durable_media_url(actor, item))
         if durable_url:
             updated = replace(
                 item,
@@ -452,6 +475,13 @@ def install_play_routes(
             except LookupError as exc:
                 raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @router.get("/memories", response_model=list[MemoryResource])
+    async def memories(request: Request) -> list[MemoryResource]:
+        try:
+            return _memory_resources(actor, _owner_character(actor, request))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     @router.post("/memories", response_model=MemoryResource, status_code=201)
     async def memory(body: MemoryRequest, request: Request) -> MemoryResource:
         async with actor._lock:
@@ -460,7 +490,11 @@ def install_play_routes(
             except RuntimeError as exc:
                 raise HTTPException(status_code=503, detail=str(exc)) from exc
         return MemoryResource(
-            id=entry.id, source=entry.source, created_at_epoch=entry.created_at_epoch
+            id=entry.id,
+            text=entry.text,
+            tags=list(entry.tags),
+            source=entry.source,
+            created_at_epoch=entry.created_at_epoch,
         )
 
     @router.get("/routes", response_model=list[RouteResource])
@@ -508,6 +542,21 @@ def install_play_routes(
                 item = entity.get_component(StudioJournalMomentComponent)
                 if item.moment_id == moment_id:
                     replace_component(entity, replace(item, pinned=True))
+                    touch_claim(actor, character)
+                    break
+            else:
+                raise HTTPException(status_code=404, detail="journal moment does not exist")
+        return next(item for item in _journal_resources(actor, character) if item.id == moment_id)
+
+    @router.delete("/journal/{moment_id}/pin", response_model=JournalResource)
+    async def unpin(moment_id: str, request: Request) -> JournalResource:
+        async with actor._lock:
+            character = _owner_character(actor, request)
+            for entity in _owned(actor, character, "journal"):
+                item = entity.get_component(StudioJournalMomentComponent)
+                if item.moment_id == moment_id:
+                    replace_component(entity, replace(item, pinned=False))
+                    touch_claim(actor, character)
                     break
             else:
                 raise HTTPException(status_code=404, detail="journal moment does not exist")

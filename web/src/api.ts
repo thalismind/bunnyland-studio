@@ -3,6 +3,7 @@ import {
   isAuthSession,
   isInfluence,
   isJournal,
+  isMemories,
   isMapResource,
   isProjection,
   isRoutes,
@@ -10,6 +11,7 @@ import {
   type AuthSession,
   type InfluenceResource,
   type JournalResource,
+  type MemoryResource,
   type MapResource,
   type ProjectionResource,
   type RouteResource,
@@ -95,6 +97,10 @@ export class StudioApi {
     return this.request(`${PLAY}/journal`, isJournal);
   }
 
+  memories(): Promise<MemoryResource[]> {
+    return this.request(`${PLAY}/memories`, isMemories);
+  }
+
   influence(body: {
     category: 'want' | 'need' | 'suggestion';
     strength: 'soft' | 'core';
@@ -134,9 +140,9 @@ export class StudioApi {
     }).then(() => undefined);
   }
 
-  pin(momentId: string): Promise<void> {
+  pin(momentId: string, currentlyPinned: boolean): Promise<void> {
     return this.request(`${PLAY}/journal/${encodeURIComponent(momentId)}/pin`, isRecordValue, {
-      method: 'PUT',
+      method: currentlyPinned ? 'DELETE' : 'PUT',
     }).then(() => undefined);
   }
 

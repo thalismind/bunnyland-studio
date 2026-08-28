@@ -69,6 +69,13 @@ export type JournalResource = {
   media_url: string;
   media_error: string;
 };
+export type MemoryResource = {
+  id: string;
+  text: string;
+  tags: string[];
+  source: string;
+  created_at_epoch: number;
+};
 export type MapLocation = { id: string; name: string; kind: string; point: GeoPoint };
 export type MapSegment = {
   id: string;
@@ -161,6 +168,18 @@ export const isJournal = (value: unknown): value is JournalResource[] =>
         moment.media_status === 'expired') &&
       typeof moment.media_url === 'string' &&
       typeof moment.media_error === 'string',
+  );
+export const isMemories = (value: unknown): value is MemoryResource[] =>
+  Array.isArray(value) &&
+  value.every(
+    memory =>
+      isRecord(memory) &&
+      typeof memory.id === 'string' &&
+      typeof memory.text === 'string' &&
+      Array.isArray(memory.tags) &&
+      memory.tags.every(tag => typeof tag === 'string') &&
+      typeof memory.source === 'string' &&
+      typeof memory.created_at_epoch === 'number',
   );
 export const isInfluence = (value: unknown): value is InfluenceResource =>
   isRecord(value) && typeof value.id === 'string' && typeof value.text === 'string';

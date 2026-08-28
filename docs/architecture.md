@@ -45,7 +45,7 @@ Play routes are under `/v1/play/extensions/bunnyland.studio`:
 - `GET /characters`; `POST /claims`; `GET|DELETE /claim`
 - `GET /projection`
 - `GET|POST /influences`; `DELETE /influences/{id}`
-- `POST /memories`
+- `GET|POST /memories`
 - `GET|POST /routes`; `GET /map`
 - `GET /journal`; reflection, pin, and media subresources
 - `WS /observer`

@@ -98,6 +98,16 @@ const journal = [
   },
 ];
 
+const memories = [
+  {
+    id: 'memory-1',
+    text: 'Inez heard the belt squeal before the steam appeared.',
+    tags: ['mechanic', 'studio'],
+    source: 'bunnyland.studio',
+    created_at_epoch: 19,
+  },
+];
+
 const fulfill = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
@@ -107,6 +117,7 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
   let claimed = false;
   let mediaRequested = false;
   let journalReadsAfterMedia = 0;
+  let journalMoments = journal;
   const requestedPaths: string[] = [];
   const mediaBodies: unknown[] = [];
   await page.route('**/api/v1/**', route => {
@@ -150,13 +161,16 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
         },
       ]);
     }
+    if (path.endsWith('/memories') && request.method() === 'GET') {
+      return fulfill(route, memories);
+    }
     if (path.endsWith('/journal')) {
-      if (!mediaRequested) return fulfill(route, journal);
+      if (!mediaRequested) return fulfill(route, journalMoments);
       journalReadsAfterMedia += 1;
       const completed = journalReadsAfterMedia > 1;
-      return fulfill(route, [
+      journalMoments = [
         {
-          ...journal[0],
+          ...journalMoments[0],
           media_job_id: 'image-job',
           media_kind: 'image',
           media_source_event_id: 'breakdown',
@@ -165,7 +179,8 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
             ? 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
             : '',
         },
-      ]);
+      ];
+      return fulfill(route, journalMoments);
     }
     if (path.endsWith('/influences') && request.method() === 'POST') {
       return fulfill(
@@ -198,7 +213,10 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
         202,
       );
     }
-    if (path.includes('/pin')) return fulfill(route, { ...journal[0], pinned: true });
+    if (path.includes('/pin')) {
+      journalMoments = [{ ...journalMoments[0], pinned: request.method() === 'PUT' }];
+      return fulfill(route, journalMoments[0]);
+    }
     return fulfill(route, { id: 'saved' }, 201);
   });
 
@@ -217,6 +235,20 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
   await expect(page.locator('.route-completed')).toHaveCount(1);
   await expect(page.locator('.route-detour')).toHaveCount(1);
   await expect(page.getByText('The cooling system lost pressure', { exact: false })).toBeVisible();
+  await expect(page.getByText('18.0 L · about 162 km · fair condition')).toBeVisible();
+  await expect(page.getByText('World epoch 20')).toBeVisible();
+  await expect(page.getByLabel('Itinerary name')).toHaveValue('Next chapter');
+  await expect(page.getByText('rose (Rose Junction)', { exact: false })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Memory', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Existing memories' })).toBeVisible();
+  await expect(page.getByText('Inez heard the belt squeal', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Influence', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Pin', exact: true }).click();
+  await expect(page.getByText('★ Pinned')).toBeVisible();
+  await page.getByRole('button', { name: 'Unpin', exact: true }).click();
+  await expect(page.getByText('★ Pinned')).toHaveCount(0);
 
   await page.locator('.composer textarea').fill('Ask Inez what she noticed');
   await page.getByRole('button', { name: 'Save influence' }).click();

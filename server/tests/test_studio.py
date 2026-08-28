@@ -471,6 +471,9 @@ def test_journal_media_sync_persists_live_and_durable_results():
         ) -> AddonMediaJob | None:
             return self.jobs.get((job_id, kind))
 
+        def resolve_character_scene_media_url(self, url: str) -> str:
+            return f"https://play.example/api{url}" if url.startswith("/v1/") else url
+
     media = Media()
     _sync_journal_media(actor, character, media)
     live = _journal_resources(actor, character)[0]
@@ -487,7 +490,10 @@ def test_journal_media_sync_persists_live_and_durable_results():
                 event_type="scene",
                 created_at_epoch=actor.epoch,
             ),
-            EventVideoComponent(url="/media/durable.mp4", source_event_id="scene-durable"),
+            EventVideoComponent(
+                url="/v1/public/media/videos/durable.mp4",
+                source_event_id="scene-durable",
+            ),
         ],
     )
     assert actor.world.has_entity(history.id)
@@ -507,7 +513,7 @@ def test_journal_media_sync_persists_live_and_durable_results():
     _sync_journal_media(actor, character, media)
     durable = _journal_resources(actor, character)[0]
     assert durable.media_status == "succeeded"
-    assert durable.media_url == "/media/durable.mp4"
+    assert durable.media_url == ("https://play.example/api/v1/public/media/videos/durable.mp4")
 
     image_moment = record_journal(actor, character, kind="media", summary="Still frame")
     image_item = image_moment.get_component(StudioJournalMomentComponent)
@@ -571,6 +577,9 @@ def test_journal_media_sync_marks_lost_jobs_retryable():
         ) -> AddonMediaJob | None:
             del job_id, kind
             return None
+
+        def resolve_character_scene_media_url(self, url: str) -> str:
+            return url
 
     _sync_journal_media(actor, character, MissingMedia())
     resource = _journal_resources(actor, character)[0]
@@ -838,6 +847,58 @@ def test_owner_scoped_http_projection_and_admin_reset():
     )
     assert projection.status_code == 200
     assert projection.json()["character_name"] == "Mira"
+
+    empty_memories = client.get(
+        "/v1/play/extensions/bunnyland.studio/memories", headers=owner_headers
+    )
+    assert empty_memories.status_code == 200
+    assert empty_memories.json() == []
+    created_memory = client.post(
+        "/v1/play/extensions/bunnyland.studio/memories",
+        headers=owner_headers,
+        json={"text": "Inez heard the belt squeal.", "tags": ["mechanic"]},
+    )
+    assert created_memory.status_code == 201
+    assert created_memory.json()["text"] == "Inez heard the belt squeal."
+    assert created_memory.json()["tags"] == ["mechanic", "studio"]
+    memories = client.get("/v1/play/extensions/bunnyland.studio/memories", headers=owner_headers)
+    assert memories.status_code == 200
+    assert memories.json() == [created_memory.json()]
+
+    reflection = client.post(
+        "/v1/play/extensions/bunnyland.studio/journal/reflections",
+        headers=owner_headers,
+        json={"text": "I will remember the sound."},
+    )
+    assert reflection.status_code == 201
+    moment_id = reflection.json()["id"]
+    pinned = client.put(
+        f"/v1/play/extensions/bunnyland.studio/journal/{moment_id}/pin",
+        headers=owner_headers,
+    )
+    assert pinned.status_code == 200
+    assert pinned.json()["pinned"] is True
+    unpinned = client.delete(
+        f"/v1/play/extensions/bunnyland.studio/journal/{moment_id}/pin",
+        headers=owner_headers,
+    )
+    assert unpinned.status_code == 200
+    assert unpinned.json()["pinned"] is False
+    assert (
+        client.put(
+            "/v1/play/extensions/bunnyland.studio/journal/missing/pin",
+            headers=owner_headers,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.delete(
+            "/v1/play/extensions/bunnyland.studio/journal/missing/pin",
+            headers=owner_headers,
+        ).status_code
+        == 404
+    )
+
     denied = client.get(
         "/v1/play/extensions/bunnyland.studio/projection",
         headers={
@@ -846,6 +907,22 @@ def test_owner_scoped_http_projection_and_admin_reset():
         },
     )
     assert denied.status_code == 403
+    denied_memories = client.get(
+        "/v1/play/extensions/bunnyland.studio/memories",
+        headers={
+            "Authorization": f"Bearer {other_token}",
+            "X-Bunnyland-Client-Id": "studio-web",
+        },
+    )
+    assert denied_memories.status_code == 403
+
+    memory_store = actor.memory_store
+    actor.memory_store = None
+    unavailable_memories = client.get(
+        "/v1/play/extensions/bunnyland.studio/memories", headers=owner_headers
+    )
+    assert unavailable_memories.status_code == 503
+    actor.memory_store = memory_store
 
     stock_claim = client.post(
         "/v1/play/claims",

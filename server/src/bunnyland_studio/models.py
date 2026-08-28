@@ -136,6 +136,8 @@ class MemoryRequest(StudioModel):
 
 class MemoryResource(StudioModel):
     id: str
+    text: str
+    tags: list[str]
     source: str
     created_at_epoch: int
 

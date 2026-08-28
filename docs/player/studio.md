@@ -83,7 +83,8 @@ Avoid writing action syntax such as `drive town-4`. Studio deliberately has no c
 
 Use the memory composer for facts or recollections the main character should privately remember.
 Studio stores the entry in the character's normal private memory collection with
-`bunnyland.studio` provenance.
+`bunnyland.studio` provenance. Open the Memory tab to review the main character's existing
+private memories as well as new Studio contributions.
 
 Write memories as information rather than instructions:
 

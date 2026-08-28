@@ -6,6 +6,7 @@ import type {
   CharacterChoice,
   JournalResource,
   MapResource,
+  MemoryResource,
   ProjectionResource,
   RouteResource,
 } from './types';
@@ -15,6 +16,7 @@ type Workspace = {
   map: MapResource;
   routes: RouteResource[];
   journal: JournalResource[];
+  memories: MemoryResource[];
 };
 
 const errorMessage = (error: unknown): string =>
@@ -164,7 +166,15 @@ function ClaimScreen({
   );
 }
 
-function Composer({ api, refresh }: { api: StudioApi; refresh: () => Promise<void> }) {
+function Composer({
+  api,
+  refresh,
+  memories,
+}: {
+  api: StudioApi;
+  refresh: () => Promise<void>;
+  memories: MemoryResource[];
+}) {
   const [mode, setMode] = useState<'influence' | 'memory'>('influence');
   const [text, setText] = useState('');
   const [category, setCategory] = useState<'want' | 'need' | 'suggestion'>('suggestion');
@@ -226,6 +236,24 @@ function Composer({ api, refresh }: { api: StudioApi; refresh: () => Promise<voi
         <button type="submit">Save {mode}</button>
         <output>{message}</output>
       </form>
+      {mode === 'memory' && (
+        <div class="memory-list">
+          <h3>Existing memories</h3>
+          {memories.length ? (
+            memories.map(memory => (
+              <article key={memory.id} class="memory-item">
+                <p>{memory.text}</p>
+                <small>
+                  {memory.source} · epoch {memory.created_at_epoch}
+                  {memory.tags.length ? ` · ${memory.tags.join(', ')}` : ''}
+                </small>
+              </article>
+            ))
+          ) : (
+            <p class="muted">No memories have been recorded yet.</p>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -256,7 +284,10 @@ function JournalMoment({
   };
   return (
     <article class={moment.pinned ? 'moment pinned' : 'moment'}>
-      <small>{moment.kind} · epoch {moment.occurred_at_epoch}</small>
+      <small>
+        {moment.kind} · epoch {moment.occurred_at_epoch}
+        {moment.pinned && <span class="pin-badge">★ Pinned</span>}
+      </small>
       <p>{moment.first_person ? <em>{moment.summary}</em> : moment.summary}</p>
       {moment.media_status === 'succeeded' && moment.media_url && moment.media_kind === 'image' && (
         <img class="moment-media" src={moment.media_url} alt={`Generated scene for: ${moment.summary}`} />
@@ -268,7 +299,9 @@ function JournalMoment({
       {failed && <output class="media-status warning">{moment.media_error || 'Media generation failed.'}</output>}
       {message && <output class="media-status">{message}</output>}
       <div class="moment-actions">
-        <button onClick={() => void api.pin(moment.id).then(refresh)}>Pin</button>
+        <button onClick={() => void api.pin(moment.id, moment.pinned).then(refresh)}>
+          {moment.pinned ? 'Unpin' : 'Pin'}
+        </button>
         {imageAvailable && (
           <button disabled={pending} onClick={() => requestMedia('image')}>
             {failed && moment.media_kind === 'image' ? 'Retry image' : 'Generate image'}
@@ -295,7 +328,7 @@ function Dashboard({
   refresh: () => Promise<void>;
   release: () => Promise<void>;
 }) {
-  const { projection, map, routes, journal } = data;
+  const { projection, map, routes, journal, memories } = data;
   const van = projection.van;
   const [routeTitle, setRouteTitle] = useState('Next chapter');
   const [waypoints, setWaypoints] = useState('');
@@ -311,15 +344,9 @@ function Dashboard({
   return (
     <main class="studio-shell">
       <header class="masthead">
-        <div>
-          <p class="eyebrow">Influence claim · {projection.claim.owner_subject}</p>
-          <h1>{projection.character_name} <span>&amp; {van?.name ?? 'the open road'}</span></h1>
-        </div>
-        <div class="status-stack">
-          <span class="status autonomous">● Autonomous controller active</span>
-          <span>World epoch {projection.world_epoch}</span>
-          <button onClick={() => void release()}>Release influence claim</button>
-        </div>
+        <h1>{projection.character_name} <span>&amp; {van?.name ?? 'the unfolding story'}</span></h1>
+        <span class="status autonomous">● Autonomous controller active</span>
+        <button class="release-claim" onClick={() => void release()}>Release influence claim</button>
       </header>
 
       <section class="hero-grid">
@@ -327,6 +354,7 @@ function Dashboard({
           <p class="eyebrow">Current scene</p>
           <h2>{projection.scene.room_name || 'Between scenes'}</h2>
           <p>{projection.scene.visible_characters.length ? `Visible: ${projection.scene.visible_characters.join(', ')}` : 'No one else is currently visible.'}</p>
+          <p class="world-epoch">World epoch {projection.world_epoch}</p>
         </article>
         <article class="panel van-card">
           <p class="eyebrow">Mobile home</p>
@@ -334,7 +362,7 @@ function Dashboard({
           {van && (
             <>
               <div class="meter"><i style={{ width: `${Math.min(100, (van.fuel_liters / van.tank_liters) * 100)}%` }} /></div>
-              <p>{van.fuel_liters.toFixed(1)} L · about {van.estimated_range_km.toFixed(0)} km · {van.reliability}</p>
+              <p>{van.fuel_liters.toFixed(1)} L · about {van.estimated_range_km.toFixed(0)} km · {van.reliability} condition</p>
               {van.broken_down && <strong class="warning">Roadside assistance needed</strong>}
             </>
           )}
@@ -350,14 +378,20 @@ function Dashboard({
       </section>
 
       <section class="lower-grid">
-        <Composer api={api} refresh={refresh} />
+        <Composer api={api} refresh={refresh} memories={memories} />
         <section class="panel">
           <p class="eyebrow">Itinerary</p>
-          <h2>Shape the road ahead</h2>
+          <h2>Shape the story ahead</h2>
           {routes.map(route => <p key={route.id}><strong>{route.title}</strong> · {route.status} · stop {route.current_waypoint + 1}/{route.waypoints.length}</p>)}
           <form onSubmit={event => { event.preventDefault(); void api.route(routeTitle, waypoints.split(',').map(value => value.trim()).filter(Boolean)).then(refresh); }}>
-            <input value={routeTitle} onInput={event => setRouteTitle(event.currentTarget.value)} aria-label="Route title" />
-            <input value={waypoints} onInput={event => setWaypoints(event.currentTarget.value)} placeholder="location ids, comma separated" aria-label="Waypoints" />
+            <label for="route-title">Itinerary name</label>
+            <input id="route-title" value={routeTitle} onInput={event => setRouteTitle(event.currentTarget.value)} />
+            <label for="route-waypoints">Stops, in order</label>
+            <input id="route-waypoints" value={waypoints} onInput={event => setWaypoints(event.currentTarget.value)} placeholder="rose, copper, camp" />
+            <p class="form-help">
+              Enter comma-separated location IDs. Available locations:{' '}
+              {map.locations.map(location => `${location.id} (${location.name})`).join(', ')}.
+            </p>
             <button type="submit">Save itinerary</button>
           </form>
         </section>
@@ -408,10 +442,10 @@ export function App() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [error, setError] = useState('');
   const refresh = async () => {
-    const [projection, map, routes, journal] = await Promise.all([
-      api.projection(), api.map(), api.routes(), api.journal(),
+    const [projection, map, routes, journal, memories] = await Promise.all([
+      api.projection(), api.map(), api.routes(), api.journal(), api.memories(),
     ]);
-    setWorkspace({ projection, map, routes, journal });
+    setWorkspace({ projection, map, routes, journal, memories });
   };
   const loadChoices = async () => setChoices(await api.characters());
   useEffect(() => {
