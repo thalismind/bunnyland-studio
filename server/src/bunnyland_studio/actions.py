@@ -37,7 +37,7 @@ from .mechanics import (
 
 
 class RefuelHandler:
-    command_type = "refuel"
+    command_type = "studio-van-refuel"
 
     def execute(self, ctx: HandlerContext, command: SubmittedCommand) -> HandlerResult:
         _character_id, character, rejection = require_character(ctx, command.character_id)
@@ -70,7 +70,7 @@ class RefuelHandler:
 
 
 class RoadsideHandler:
-    command_type = "call-roadside-assistance"
+    command_type = "studio-van-call-roadside-assistance"
 
     def execute(self, ctx: HandlerContext, command: SubmittedCommand) -> HandlerResult:
         _character_id, character, rejection = require_character(ctx, command.character_id)
@@ -95,7 +95,7 @@ class RoadsideHandler:
 
 
 class ReflectionHandler:
-    command_type = "write-travel-reflection"
+    command_type = "studio-van-write-travel-reflection"
 
     def execute(self, ctx: HandlerContext, command: SubmittedCommand) -> HandlerResult:
         _character_id, character, rejection = require_character(ctx, command.character_id)
@@ -127,7 +127,7 @@ class ReflectionHandler:
 
 
 class DriveHandler:
-    command_type = "drive"
+    command_type = "studio-van-drive"
 
     def execute(self, ctx: HandlerContext, command: SubmittedCommand) -> HandlerResult:
         _character_id, character, rejection = require_character(ctx, command.character_id)
@@ -275,7 +275,7 @@ class DriveHandler:
 
 ACTION_DEFINITIONS = (
     ActionDefinition(
-        command_type="drive",
+        command_type="studio-van-drive",
         title="Drive",
         description="Autonomously drive the Studio van to a route destination.",
         lane=Lane.WORLD,
@@ -285,18 +285,18 @@ ACTION_DEFINITIONS = (
         },
     ),
     ActionDefinition(
-        command_type="refuel",
+        command_type="studio-van-refuel",
         title="Refuel",
         description="Refuel the Studio van at a visible fuel stop.",
         arguments={"liters": ActionArgument(kind="number")},
     ),
     ActionDefinition(
-        command_type="call-roadside-assistance",
+        command_type="studio-van-call-roadside-assistance",
         title="Call roadside assistance",
         description="Call ordinary roadside help after a breakdown.",
     ),
     ActionDefinition(
-        command_type="write-travel-reflection",
+        command_type="studio-van-write-travel-reflection",
         title="Write travel reflection",
         description="Write a first-person journal reflection.",
         lane=Lane.FOCUS,

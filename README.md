@@ -99,8 +99,10 @@ See the complete [player guide](docs/player/studio.md).
 
 ## Van and route mechanics
 
-The plugin contributes `drive`, `refuel`, `call-roadside-assistance`, and
-`write-travel-reflection` to the autonomous action catalogue. They are available to the
+The plugin contributes `studio-van-drive`, `studio-van-refuel`,
+`studio-van-call-roadside-assistance`, and `studio-van-write-travel-reflection` to the
+autonomous action catalogue. Their Studio-specific names avoid collisions with genre-pack
+verbs. They are available to the
 character's controller, not to Studio's influence API.
 
 Driving resolves a persisted road distance and consumes fuel. An intended waypoint advances

@@ -21,8 +21,9 @@ it has no controller mutation authority.
 
 ## Van and route mechanics
 
-The autonomous action catalogue includes `drive`, `refuel`, `call-roadside-assistance`, and
-`write-travel-reflection`. These actions are available to the character controller through the
+The autonomous action catalogue includes `studio-van-drive`, `studio-van-refuel`,
+`studio-van-call-roadside-assistance`, and `studio-van-write-travel-reflection`. These actions
+are available to the character controller through the
 normal action catalogue and are intentionally absent from Studio’s HTTP surface.
 
 Driving resolves distance from a persisted road, consumes fuel, records an actual segment and

@@ -122,8 +122,8 @@ fuel stations.
 
 ## Fuel and breakdowns
 
-The autonomous controller can choose Studio's `drive`, `refuel`,
-`call-roadside-assistance`, and `write-travel-reflection` actions.
+The autonomous controller can choose Studio's `studio-van-drive`, `studio-van-refuel`,
+`studio-van-call-roadside-assistance`, and `studio-van-write-travel-reflection` actions.
 
 - Driving consumes fuel from the persisted road distance.
 - Insufficient fuel prevents the drive.

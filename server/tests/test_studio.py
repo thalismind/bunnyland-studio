@@ -203,10 +203,10 @@ def test_plugin_exports_typed_contracts_and_no_studio_command_route():
         FICTIONAL_GENERATOR_NAME,
     ]
     assert {item.command_type for item in contribution.commands.action_definitions} == {
-        "drive",
-        "refuel",
-        "call-roadside-assistance",
-        "write-travel-reflection",
+        "studio-van-drive",
+        "studio-van-refuel",
+        "studio-van-call-roadside-assistance",
+        "studio-van-write-travel-reflection",
     }
     assert len(contribution.policy.character_control_claim_guards) == 1
 
@@ -324,7 +324,7 @@ def test_route_and_drive_advance_only_after_an_actual_arrival():
     )
     result = DriveHandler().execute(
         HandlerContext(actor.world, epoch=12, actor=actor),
-        _command(character, controller, "drive", {"destination_id": "copper"}),
+        _command(character, controller, "studio-van-drive", {"destination_id": "copper"}),
     )
     assert result.ok and result.plan is not None
     assert route.get_component(StudioRouteComponent).current_waypoint == 0
@@ -348,7 +348,8 @@ def test_drive_rejects_unknown_road_and_insufficient_fuel():
     context = HandlerContext(actor.world, epoch=1, actor=actor)
 
     missing = handler.execute(
-        context, _command(character, controller, "drive", {"destination_id": "missing"})
+        context,
+        _command(character, controller, "studio-van-drive", {"destination_id": "missing"}),
     )
     assert not missing.ok and missing.reason == "no road connects those locations"
 
@@ -357,7 +358,8 @@ def test_drive_rejects_unknown_road_and_insufficient_fuel():
     van_entity.remove_component(StudioVanComponent)
     van_entity.add_component(replace(van, fuel_liters=1))
     empty = handler.execute(
-        context, _command(character, controller, "drive", {"destination_id": "copper"})
+        context,
+        _command(character, controller, "studio-van-drive", {"destination_id": "copper"}),
     )
     assert not empty.ok and empty.reason == "insufficient fuel for that road distance"
 
@@ -368,7 +370,7 @@ def test_refuel_action_requires_a_mapped_fuel_stop():
     context = HandlerContext(actor.world, epoch=1, actor=actor)
 
     rejected_result = handler.execute(
-        context, _command(character, controller, "refuel", {"liters": 10})
+        context, _command(character, controller, "studio-van-refuel", {"liters": 10})
     )
     assert not rejected_result.ok and rejected_result.reason == "refueling requires a fuel stop"
 
@@ -381,7 +383,7 @@ def test_refuel_action_requires_a_mapped_fuel_stop():
     rose.remove_component(StudioLocationComponent)
     rose.add_component(replace(place, kind="fuel"))
     planned_result = handler.execute(
-        context, _command(character, controller, "refuel", {"liters": 10})
+        context, _command(character, controller, "studio-van-refuel", {"liters": 10})
     )
     assert planned_result.ok and planned_result.plan is not None
 
@@ -397,7 +399,7 @@ def test_reflection_action_creates_a_first_person_journal_entity():
         _command(
             character,
             controller,
-            "write-travel-reflection",
+            "studio-van-write-travel-reflection",
             {"text": "I followed the copper light west."},
         ),
     )
