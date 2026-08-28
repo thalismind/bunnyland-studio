@@ -102,6 +102,7 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
 }) => {
   let claimed = false;
   const requestedPaths: string[] = [];
+  const mediaBodies: unknown[] = [];
   await page.route('**/api/v1/**', route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -160,6 +161,7 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
       );
     }
     if (path.includes('/media')) {
+      mediaBodies.push(request.postDataJSON() as unknown);
       return fulfill(
         route,
         {
@@ -203,4 +205,5 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
 
   expect(requestedPaths.some(path => path.includes('/commands'))).toBe(false);
   expect(requestedPaths.some(path => path.includes('/queued-actions'))).toBe(false);
+  expect(mediaBodies).toEqual([{ kind: 'image', event_id: '' }]);
 });

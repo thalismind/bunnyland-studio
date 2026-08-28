@@ -143,7 +143,7 @@ export class StudioApi {
   media(momentId: string, kind: 'image' | 'video'): Promise<void> {
     return this.request(`${PLAY}/journal/${encodeURIComponent(momentId)}/media`, isRecordValue, {
       method: 'POST',
-      body: JSON.stringify({ kind, event_id: momentId }),
+      body: JSON.stringify({ kind, event_id: '' }),
     }).then(() => undefined);
   }
 
