@@ -29,6 +29,11 @@ jobs:
         uses: astral-sh/setup-uv@v8.1.0
       - name: Install server dependencies
         run: uv sync --project bunnyland-server --extra server
+      - name: Install Studio server package
+        run: >-
+          uv pip install
+          --python bunnyland-server/.venv/bin/python
+          --editable bunnyland-studio/server
       - name: Install web dependencies
         run: npm ci --prefix bunnyland-studio
       - name: Install Playwright browser
