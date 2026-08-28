@@ -1,6 +1,8 @@
 ARG BUNNYLAND_SERVER_IMAGE=ghcr.io/thalismind/bunnyland-server:main
 FROM ${BUNNYLAND_SERVER_IMAGE}
 
+USER root
 COPY server /tmp/bunnyland-studio/server
-RUN /app/.venv/bin/pip install --no-cache-dir /tmp/bunnyland-studio/server \
+RUN uv pip install --python /app/.venv/bin/python /tmp/bunnyland-studio/server \
     && rm -r /tmp/bunnyland-studio
+USER 10001:10001

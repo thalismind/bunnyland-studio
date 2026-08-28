@@ -1,3 +1,5 @@
+ARG BUNNYLAND_WEB_IMAGE=ghcr.io/thalismind/bunnyland-web:main
+
 FROM node:20-alpine AS studio-build
 WORKDIR /src
 COPY web/package.json web/package-lock.json ./
@@ -5,6 +7,5 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-ARG BUNNYLAND_WEB_IMAGE=ghcr.io/thalismind/bunnyland-web:main
 FROM ${BUNNYLAND_WEB_IMAGE}
 COPY --from=studio-build /src/dist/ /usr/share/nginx/html/studio/
