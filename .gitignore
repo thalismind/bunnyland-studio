@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+coverage.xml
+htmlcov/
+playwright-report/
+test-results/

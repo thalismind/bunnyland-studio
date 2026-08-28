@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+python_bin=${BUNNYLAND_STUDIO_PYTHON:-"${repo_root}/../bunnyland-server/.venv/bin/python"}
+ruff_bin=${BUNNYLAND_STUDIO_RUFF:-"${repo_root}/../bunnyland-server/.venv/bin/ruff"}
+
+PYTHONPATH="${repo_root}/server/src" "${python_bin}" -m pytest "${repo_root}/server/tests"
+"${ruff_bin}" check "${repo_root}/server/src" "${repo_root}/server/tests"
+"${ruff_bin}" format --check "${repo_root}/server/src" "${repo_root}/server/tests"

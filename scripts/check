@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+"${repo_root}/scripts/test-server"
+"${repo_root}/scripts/test-web"
+if rg -n '\b(Any|any)\b' "${repo_root}/server/src" "${repo_root}/web/src"; then
+  echo "untyped Any/any is not allowed" >&2
+  exit 1
+fi
+git -C "${repo_root}" diff --check

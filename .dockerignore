@@ -1,0 +1,9 @@
+.git
+.pytest_cache
+.ruff_cache
+server/dist
+server/.venv
+web/dist
+web/node_modules
+test-results
+playwright-report
