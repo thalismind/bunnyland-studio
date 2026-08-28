@@ -10,8 +10,6 @@ import type {
   RouteResource,
 } from './types';
 
-const TOKEN_KEY = 'bunnyland.studio.token';
-
 type Workspace = {
   projection: ProjectionResource;
   map: MapResource;
@@ -22,33 +20,45 @@ type Workspace = {
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'Studio request failed';
 
-function SignIn({ onSignIn }: { onSignIn: (token: string) => void }) {
-  const [token, setToken] = useState('');
+function SignIn({ onSignIn }: { onSignIn: (username: string, password: string) => Promise<void> }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   return (
     <main class="welcome">
-      <p class="eyebrow">An autonomous road movie</p>
+      <p class="eyebrow">Autonomous story studio</p>
       <h1>Bunnyland Studio</h1>
       <p>
-        Choose one main character, shape what matters to her, and watch the road unfold. The
+        Choose one main character, shape what matters to them, and watch the story unfold. The
         autonomous controller remains active; Studio influences are never direct commands.
       </p>
       <form
         class="auth-card"
         onSubmit={event => {
           event.preventDefault();
-          if (token.trim()) onSignIn(token.trim());
+          setError('');
+          void onSignIn(username.trim(), password).catch(problem => setError(errorMessage(problem)));
         }}
       >
-        <label for="studio-token">World access token</label>
+        <label for="studio-username">Username</label>
         <input
-          id="studio-token"
+          id="studio-username"
+          autoComplete="username"
+          value={username}
+          onInput={event => setUsername(event.currentTarget.value)}
+          required
+        />
+        <label for="studio-password">Password</label>
+        <input
+          id="studio-password"
           type="password"
           autoComplete="current-password"
-          value={token}
-          onInput={event => setToken(event.currentTarget.value)}
+          value={password}
+          onInput={event => setPassword(event.currentTarget.value)}
           required
         />
         <button type="submit">Enter Studio</button>
+        {error && <output class="warning">{error}</output>}
       </form>
     </main>
   );
@@ -331,8 +341,8 @@ function Dashboard({
 }
 
 export function App() {
-  const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) ?? '');
-  const api = useMemo(() => new StudioApi(token), [token]);
+  const api = useMemo(() => new StudioApi(), []);
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [choices, setChoices] = useState<CharacterChoice[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [error, setError] = useState('');
@@ -344,15 +354,19 @@ export function App() {
   };
   const loadChoices = async () => setChoices(await api.characters());
   useEffect(() => {
-    if (!token) return;
+    void api.session().then(() => setSignedIn(true)).catch(() => setSignedIn(false));
+  }, [api]);
+  useEffect(() => {
+    if (!signedIn) return;
     void refresh().catch(() => loadChoices().catch(problem => setError(errorMessage(problem))));
-  }, [api, token]);
+  }, [api, signedIn]);
   useEffect(() => {
     if (!workspace) return;
     return api.observe(() => void refresh());
   }, [api, Boolean(workspace)]);
-  if (!token) return <SignIn onSignIn={value => { sessionStorage.setItem(TOKEN_KEY, value); setToken(value); }} />;
-  if (error) return <main class="welcome"><h1>Studio could not open</h1><p>{error}</p><button onClick={() => { sessionStorage.removeItem(TOKEN_KEY); setToken(''); setError(''); }}>Use another token</button></main>;
+  if (signedIn === null) return <main class="welcome"><p>Opening Studio…</p></main>;
+  if (!signedIn) return <SignIn onSignIn={(username, password) => api.login(username, password).then(() => setSignedIn(true))} />;
+  if (error) return <main class="welcome"><h1>Studio could not open</h1><p>{error}</p><button onClick={() => void api.logout().finally(() => { setSignedIn(false); setError(''); })}>Use another account</button></main>;
   if (!workspace)
     return (
       <ClaimScreen

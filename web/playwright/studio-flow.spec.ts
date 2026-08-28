@@ -106,6 +106,18 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
     const request = route.request();
     const path = new URL(request.url()).pathname;
     requestedPaths.push(path);
+    if (path.endsWith('/auth/session')) {
+      if (request.method() === 'GET') {
+        return fulfill(route, { detail: 'authentication required' }, 401);
+      }
+      return fulfill(route, {
+        subject: 'owner-a',
+        scopes: ['world:play'],
+        expires_at: 9999999999,
+        rotate_after: null,
+        rotation_eligible: false,
+      });
+    }
     if (path.endsWith('/projection')) {
       return claimed
         ? fulfill(route, projection)
@@ -166,7 +178,8 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
   });
 
   await page.goto('./');
-  await page.getByLabel('World access token').fill('owner-token');
+  await page.getByLabel('Username').fill('owner-a');
+  await page.getByLabel('Password').fill('correct horse battery staple');
   await page.getByRole('button', { name: 'Enter Studio' }).click();
   await expect(page.getByRole('heading', { name: 'Claim main character' })).toBeVisible();
   await page.getByLabel('Main character').selectOption('101');

@@ -1,11 +1,13 @@
 import {
   isCharacterChoices,
+  isAuthSession,
   isInfluence,
   isJournal,
   isMapResource,
   isProjection,
   isRoutes,
   type CharacterChoice,
+  type AuthSession,
   type InfluenceResource,
   type JournalResource,
   type MapResource,
@@ -20,8 +22,6 @@ const CLIENT_ID = 'bunnyland-studio-web';
 export type Validator<T> = (value: unknown) => value is T;
 
 export class StudioApi {
-  constructor(private readonly token: string) {}
-
   private async request<T>(path: string, validate: Validator<T>, init?: RequestInit): Promise<T> {
     const response = await fetch(path, {
       ...init,
@@ -29,7 +29,6 @@ export class StudioApi {
       headers: {
         'Content-Type': 'application/json',
         'X-Bunnyland-Client-Id': CLIENT_ID,
-        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
         ...init?.headers,
       },
     });
@@ -40,6 +39,29 @@ export class StudioApi {
     const value = JSON.parse(await response.text()) as unknown;
     if (!validate(value)) throw new Error(`Invalid Studio response from ${path}`);
     return value;
+  }
+
+  login(username: string, password: string): Promise<AuthSession> {
+    return this.request('/api/v1/auth/session', isAuthSession, {
+      method: 'POST',
+      body: JSON.stringify({ username, password, delivery: 'cookie' }),
+    });
+  }
+
+  session(): Promise<AuthSession> {
+    return this.request('/api/v1/auth/session', isAuthSession);
+  }
+
+  logout(): Promise<void> {
+    return fetch('/api/v1/auth/session', {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: { 'X-Bunnyland-Client-Id': CLIENT_ID },
+    }).then(response => {
+      if (!response.ok && response.status !== 401) {
+        throw new Error(`${response.status} ${response.statusText}`);
+      }
+    });
   }
 
   characters(): Promise<CharacterChoice[]> {
@@ -149,7 +171,7 @@ export class StudioApi {
     let lastSequence = -1;
     socket.addEventListener('open', () => {
       socket.send(
-        JSON.stringify({ type: 'authenticate', data: { token: this.token, client_id: CLIENT_ID } }),
+        JSON.stringify({ type: 'authenticate', data: { client_id: CLIENT_ID } }),
       );
     });
     socket.addEventListener('message', event => {

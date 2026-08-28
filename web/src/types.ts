@@ -1,4 +1,11 @@
 export type GeoPoint = { latitude: number; longitude: number };
+export type AuthSession = {
+  subject: string;
+  scopes: string[];
+  expires_at: number;
+  rotate_after: number | null;
+  rotation_eligible: boolean;
+};
 
 export type CharacterChoice = { id: string; name: string; claimed: boolean };
 export type ClaimResource = {
@@ -79,6 +86,15 @@ export type MapResource = {
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+export const isAuthSession = (value: unknown): value is AuthSession =>
+  isRecord(value) &&
+  typeof value.subject === 'string' &&
+  Array.isArray(value.scopes) &&
+  value.scopes.every(scope => typeof scope === 'string') &&
+  typeof value.expires_at === 'number' &&
+  (value.rotate_after === null || typeof value.rotate_after === 'number') &&
+  typeof value.rotation_eligible === 'boolean';
 
 export const isProjection = (value: unknown): value is ProjectionResource =>
   isRecord(value) &&
