@@ -71,6 +71,8 @@ form { display: grid; gap: .75rem; }
 .moment small { text-transform: uppercase; letter-spacing: .08em; opacity: .65; }
 .moment-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
 .moment-actions button { padding: .38rem .65rem; font-size: .72rem; }
+.moment-media { display: block; width: 100%; max-height: 420px; margin: .75rem 0; border: 1px solid rgba(58, 45, 34, .3); object-fit: contain; background: #241d18; }
+.media-status { display: block; margin: .7rem 0; font-size: .84rem; }
 @keyframes draw-route { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
 @keyframes pulse { 50% { stroke-width: 9; } }
 @media (max-width: 800px) {

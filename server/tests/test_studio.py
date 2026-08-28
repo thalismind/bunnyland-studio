@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Literal
 
 import pytest
 from bunnyland.claims import ensure_character_control_claim_allowed
@@ -17,17 +18,21 @@ from bunnyland.core import (
     SubmittedCommand,
     WorldActor,
     execute_mutation_plan,
+    replace_component,
     spawn_entity,
 )
+from bunnyland.foundation.history.mechanics import WorldHistoryRecordComponent
 from bunnyland.foundation.needs.mechanics import HungerComponent
 from bunnyland.foundation.persona.mechanics import GoalComponent
+from bunnyland.imagegen.components import EventImageComponent, EventVideoComponent
 from bunnyland.memory import InMemoryStore
-from bunnyland.plugins import PluginRegistry
+from bunnyland.plugins import AddonMediaCapability, AddonMediaJob, PluginRegistry
 from bunnyland.server.app import create_app
 from bunnyland.server.auth import WORLD_ADMIN_SCOPE, WORLD_PLAY_SCOPE, TokenStore
 from fastapi.testclient import TestClient
 
 from bunnyland_studio.actions import DriveHandler, ReflectionHandler, RefuelHandler
+from bunnyland_studio.api import _journal_resources, _normalized_media_status, _sync_journal_media
 from bunnyland_studio.components import (
     GeoPoint,
     StudioBreakdownComponent,
@@ -61,6 +66,7 @@ from bunnyland_studio.mechanics import (
     drive_van,
     explain_breakdown,
     influence_fragments,
+    record_journal,
     recover_van,
     release_claim,
     remove_influence,
@@ -410,6 +416,168 @@ def test_reflection_action_creates_a_first_person_journal_entity():
     moment = _owned(actor, character, "journal")[0].get_component(StudioJournalMomentComponent)
     assert moment.first_person
     assert moment.summary == "I followed the copper light west."
+
+
+def test_journal_media_sync_persists_live_and_durable_results():
+    actor, character, _controller, _destination = _studio_world()
+    moment = record_journal(
+        actor,
+        character,
+        kind="reflection",
+        summary="I learned to listen before turning the key.",
+        first_person=True,
+    )
+    item = moment.get_component(StudioJournalMomentComponent)
+    replace_component(
+        moment,
+        replace(item, media_job_id="live-image", media_kind="image", media_status="queued"),
+    )
+
+    class Media(AddonMediaCapability):
+        def __init__(self) -> None:
+            self.jobs: dict[tuple[str, str], AddonMediaJob] = {
+                ("live-image", "image"): AddonMediaJob(
+                    id="live-image",
+                    kind="image",
+                    status="succeeded",
+                    source_event_id="scene-live",
+                    url="/media/live.png",
+                    error=None,
+                )
+            }
+
+        @property
+        def image_available(self) -> bool:
+            return True
+
+        @property
+        def video_available(self) -> bool:
+            return True
+
+        async def request_character_scene_image(
+            self, character_id: str, *, requested_by: str, event_id: str = ""
+        ) -> AddonMediaJob | None:
+            del character_id, requested_by, event_id
+            return None
+
+        async def request_character_scene_video(
+            self, character_id: str, *, requested_by: str, event_id: str = ""
+        ) -> AddonMediaJob | None:
+            del character_id, requested_by, event_id
+            return None
+
+        def get_character_scene_media_job(
+            self, job_id: str, *, kind: Literal["image", "video"]
+        ) -> AddonMediaJob | None:
+            return self.jobs.get((job_id, kind))
+
+    media = Media()
+    _sync_journal_media(actor, character, media)
+    live = _journal_resources(actor, character)[0]
+    assert live.media_status == "succeeded"
+    assert live.media_url == "/media/live.png"
+    assert live.media_source_event_id == "scene-live"
+
+    history = spawn_entity(
+        actor.world,
+        [
+            WorldHistoryRecordComponent(
+                summary="A durable scene",
+                source_event_id="scene-durable",
+                event_type="scene",
+                created_at_epoch=actor.epoch,
+            ),
+            EventVideoComponent(url="/media/durable.mp4", source_event_id="scene-durable"),
+        ],
+    )
+    assert actor.world.has_entity(history.id)
+    current = moment.get_component(StudioJournalMomentComponent)
+    replace_component(
+        moment,
+        replace(
+            current,
+            media_job_id="forgotten-video",
+            media_kind="video",
+            media_source_event_id="scene-durable",
+            media_status="running",
+            media_url="",
+        ),
+    )
+
+    _sync_journal_media(actor, character, media)
+    durable = _journal_resources(actor, character)[0]
+    assert durable.media_status == "succeeded"
+    assert durable.media_url == "/media/durable.mp4"
+
+    image_moment = record_journal(actor, character, kind="media", summary="Still frame")
+    image_item = image_moment.get_component(StudioJournalMomentComponent)
+    replace_component(
+        image_moment,
+        replace(
+            image_item,
+            media_job_id="forgotten-image",
+            media_kind="image",
+            media_source_event_id="scene-image",
+            media_status="queued",
+        ),
+    )
+    spawn_entity(
+        actor.world,
+        [
+            WorldHistoryRecordComponent(
+                summary="A durable still",
+                source_event_id="scene-image",
+                event_type="scene",
+                created_at_epoch=actor.epoch,
+            ),
+            EventImageComponent(url="/media/durable.png", source_event_id="scene-image"),
+        ],
+    )
+
+    _sync_journal_media(actor, character, media)
+
+    saved_image = image_moment.get_component(StudioJournalMomentComponent)
+    assert saved_image.media_status == "succeeded"
+    assert saved_image.media_url == "/media/durable.png"
+
+
+def test_journal_media_sync_marks_lost_jobs_retryable():
+    actor, character, _controller, _destination = _studio_world()
+    moment = record_journal(actor, character, kind="note", summary="A moment")
+    item = moment.get_component(StudioJournalMomentComponent)
+    replace_component(
+        moment,
+        replace(item, media_job_id="lost", media_kind="image", media_status="running"),
+    )
+
+    class MissingMedia(AddonMediaCapability):
+        image_available = True
+        video_available = True
+
+        async def request_character_scene_image(
+            self, character_id: str, *, requested_by: str, event_id: str = ""
+        ) -> AddonMediaJob | None:
+            del character_id, requested_by, event_id
+            return None
+
+        async def request_character_scene_video(
+            self, character_id: str, *, requested_by: str, event_id: str = ""
+        ) -> AddonMediaJob | None:
+            del character_id, requested_by, event_id
+            return None
+
+        def get_character_scene_media_job(
+            self, job_id: str, *, kind: Literal["image", "video"]
+        ) -> AddonMediaJob | None:
+            del job_id, kind
+            return None
+
+    _sync_journal_media(actor, character, MissingMedia())
+    resource = _journal_resources(actor, character)[0]
+
+    assert resource.media_status == "expired"
+    assert "request it again" in resource.media_error
+    assert _normalized_media_status("unexpected") == "failed"
 
 
 def test_breakdown_opening_protection_cooldown_and_recovery():

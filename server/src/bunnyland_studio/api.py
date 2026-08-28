@@ -8,6 +8,8 @@ from dataclasses import replace
 
 from bunnyland.core import CharacterComponent, ControlledBy, IdentityComponent
 from bunnyland.core.ecs import replace_component
+from bunnyland.foundation.history.mechanics import history_record_for_event
+from bunnyland.imagegen.components import EventImageComponent, EventVideoComponent
 from bunnyland.plugins import AddonMediaCapability, PlayWebSocketAuthCapability
 from bunnyland.server import serialize_character_projection
 from bunnyland.server.app import (
@@ -184,9 +186,73 @@ def _journal_resources(actor, character) -> list[JournalResource]:
                 pinned=item.pinned,
                 media_job_id=item.media_job_id,
                 media_kind=item.media_kind,
+                media_source_event_id=item.media_source_event_id,
+                media_status=item.media_status,
+                media_url=item.media_url,
+                media_error=item.media_error,
             )
         )
     return sorted(resources, key=lambda item: (item.occurred_at_epoch, item.id), reverse=True)[:500]
+
+
+def _durable_media_url(actor, item: StudioJournalMomentComponent) -> str:
+    if not item.media_source_event_id or not item.media_kind:
+        return ""
+    record = history_record_for_event(actor.world, item.media_source_event_id)
+    if record is None:
+        return ""
+    if item.media_kind == "image" and record.has_component(EventImageComponent):
+        return record.get_component(EventImageComponent).url
+    if item.media_kind == "video" and record.has_component(EventVideoComponent):
+        return record.get_component(EventVideoComponent).url
+    return ""
+
+
+def _normalized_media_status(status: str) -> str:
+    if status in {"queued", "running", "succeeded", "failed"}:
+        return status
+    return "failed"
+
+
+def _sync_journal_media(actor, character, media: AddonMediaCapability) -> None:
+    """Persist live jobs and durable event media into owner-scoped journal moments."""
+
+    for entity in _owned(actor, character, "journal"):
+        item = entity.get_component(StudioJournalMomentComponent)
+        if not item.media_job_id or not item.media_kind:
+            continue
+        job = media.get_character_scene_media_job(item.media_job_id, kind=item.media_kind)
+        durable_url = _durable_media_url(actor, item)
+        if durable_url:
+            updated = replace(
+                item,
+                media_status="succeeded",
+                media_url=durable_url,
+                media_error="",
+            )
+        elif job is not None:
+            status = _normalized_media_status(job.status)
+            updated = replace(
+                item,
+                media_source_event_id=job.source_event_id,
+                media_status=status,
+                media_url=job.url,
+                media_error=(
+                    job.error or ""
+                    if status != "failed" or job.error
+                    else f"Media service returned an unsupported status: {job.status}"
+                ),
+            )
+        elif item.media_status in {"", "queued", "running"}:
+            updated = replace(
+                item,
+                media_status="expired",
+                media_error="Media job state expired before completion; request it again.",
+            )
+        else:
+            continue
+        if updated != item:
+            replace_component(entity, updated)
 
 
 def _map_resource(actor, character) -> MapResource:
@@ -418,7 +484,10 @@ def install_play_routes(
 
     @router.get("/journal", response_model=list[JournalResource])
     async def journal(request: Request) -> list[JournalResource]:
-        return _journal_resources(actor, _owner_character(actor, request))
+        async with actor._lock:
+            character = _owner_character(actor, request)
+            _sync_journal_media(actor, character, addon_media)
+            return _journal_resources(actor, character)
 
     @router.post("/journal/reflections", response_model=JournalResource, status_code=201)
     async def reflection(body: ReflectionRequest, request: Request) -> JournalResource:
@@ -470,8 +539,20 @@ def install_play_routes(
         )
         if job is None:
             raise HTTPException(status_code=400, detail="character has no scene to illustrate")
-        item = moment.get_component(StudioJournalMomentComponent)
-        replace_component(moment, replace(item, media_job_id=job.id, media_kind=body.kind))
+        async with actor._lock:
+            item = moment.get_component(StudioJournalMomentComponent)
+            replace_component(
+                moment,
+                replace(
+                    item,
+                    media_job_id=job.id,
+                    media_kind=body.kind,
+                    media_source_event_id=job.source_event_id,
+                    media_status=_normalized_media_status(job.status),
+                    media_url=job.url,
+                    media_error=job.error or "",
+                ),
+            )
         return MediaJobResource(**job.__dict__)
 
     @router.websocket("/observer")

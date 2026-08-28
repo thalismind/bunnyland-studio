@@ -230,6 +230,60 @@ function Composer({ api, refresh }: { api: StudioApi; refresh: () => Promise<voi
   );
 }
 
+function JournalMoment({
+  api,
+  moment,
+  refresh,
+  imageAvailable,
+  videoAvailable,
+}: {
+  api: StudioApi;
+  moment: JournalResource;
+  refresh: () => Promise<void>;
+  imageAvailable: boolean;
+  videoAvailable: boolean;
+}) {
+  const [message, setMessage] = useState('');
+  const pending = moment.media_status === 'queued' || moment.media_status === 'running';
+  const failed = moment.media_status === 'failed' || moment.media_status === 'expired';
+  const requestMedia = (kind: 'image' | 'video') => {
+    setMessage(`Requesting ${kind}…`);
+    void api
+      .media(moment.id, kind)
+      .then(refresh)
+      .then(() => setMessage(''))
+      .catch(problem => setMessage(errorMessage(problem)));
+  };
+  return (
+    <article class={moment.pinned ? 'moment pinned' : 'moment'}>
+      <small>{moment.kind} · epoch {moment.occurred_at_epoch}</small>
+      <p>{moment.first_person ? <em>{moment.summary}</em> : moment.summary}</p>
+      {moment.media_status === 'succeeded' && moment.media_url && moment.media_kind === 'image' && (
+        <img class="moment-media" src={moment.media_url} alt={`Generated scene for: ${moment.summary}`} />
+      )}
+      {moment.media_status === 'succeeded' && moment.media_url && moment.media_kind === 'video' && (
+        <video class="moment-media" src={moment.media_url} controls preload="metadata" />
+      )}
+      {pending && <output class="media-status">Generating {moment.media_kind}…</output>}
+      {failed && <output class="media-status warning">{moment.media_error || 'Media generation failed.'}</output>}
+      {message && <output class="media-status">{message}</output>}
+      <div class="moment-actions">
+        <button onClick={() => void api.pin(moment.id).then(refresh)}>Pin</button>
+        {imageAvailable && (
+          <button disabled={pending} onClick={() => requestMedia('image')}>
+            {failed && moment.media_kind === 'image' ? 'Retry image' : 'Generate image'}
+          </button>
+        )}
+        {videoAvailable && (
+          <button disabled={pending} onClick={() => requestMedia('video')}>
+            {failed && moment.media_kind === 'video' ? 'Retry video' : 'Generate video'}
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 function Dashboard({
   api,
   data,
@@ -246,6 +300,14 @@ function Dashboard({
   const [routeTitle, setRouteTitle] = useState('Next chapter');
   const [waypoints, setWaypoints] = useState('');
   const [reflection, setReflection] = useState('');
+  const hasPendingMedia = journal.some(
+    moment => moment.media_status === 'queued' || moment.media_status === 'running',
+  );
+  useEffect(() => {
+    if (!hasPendingMedia) return;
+    const timer = window.setTimeout(() => void refresh(), 2000);
+    return () => window.clearTimeout(timer);
+  }, [hasPendingMedia, journal, refresh]);
   return (
     <main class="studio-shell">
       <header class="masthead">
@@ -324,15 +386,14 @@ function Dashboard({
         </form>
         <div class="journal-grid">
           {journal.map(moment => (
-            <article key={moment.id} class={moment.pinned ? 'moment pinned' : 'moment'}>
-              <small>{moment.kind} · epoch {moment.occurred_at_epoch}</small>
-              <p>{moment.first_person ? <em>{moment.summary}</em> : moment.summary}</p>
-              <div class="moment-actions">
-                <button onClick={() => void api.pin(moment.id).then(refresh)}>Pin</button>
-                {projection.media_available.image && <button onClick={() => void api.media(moment.id, 'image').then(refresh)}>Image</button>}
-                {projection.media_available.video && <button onClick={() => void api.media(moment.id, 'video').then(refresh)}>Video</button>}
-              </div>
-            </article>
+            <JournalMoment
+              key={moment.id}
+              api={api}
+              moment={moment}
+              refresh={refresh}
+              imageAvailable={projection.media_available.image}
+              videoAvailable={projection.media_available.video}
+            />
           ))}
         </div>
       </section>

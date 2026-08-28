@@ -64,6 +64,10 @@ export type JournalResource = {
   pinned: boolean;
   media_job_id: string;
   media_kind: '' | 'image' | 'video';
+  media_source_event_id: string;
+  media_status: '' | 'queued' | 'running' | 'succeeded' | 'failed' | 'expired';
+  media_url: string;
+  media_error: string;
 };
 export type MapLocation = { id: string; name: string; kind: string; point: GeoPoint };
 export type MapSegment = {
@@ -140,8 +144,23 @@ export const isJournal = (value: unknown): value is JournalResource[] =>
     moment =>
       isRecord(moment) &&
       typeof moment.id === 'string' &&
+      typeof moment.kind === 'string' &&
       typeof moment.summary === 'string' &&
-      typeof moment.occurred_at_epoch === 'number',
+      typeof moment.location_id === 'string' &&
+      typeof moment.occurred_at_epoch === 'number' &&
+      typeof moment.first_person === 'boolean' &&
+      typeof moment.pinned === 'boolean' &&
+      typeof moment.media_job_id === 'string' &&
+      (moment.media_kind === '' || moment.media_kind === 'image' || moment.media_kind === 'video') &&
+      typeof moment.media_source_event_id === 'string' &&
+      (moment.media_status === '' ||
+        moment.media_status === 'queued' ||
+        moment.media_status === 'running' ||
+        moment.media_status === 'succeeded' ||
+        moment.media_status === 'failed' ||
+        moment.media_status === 'expired') &&
+      typeof moment.media_url === 'string' &&
+      typeof moment.media_error === 'string',
   );
 export const isInfluence = (value: unknown): value is InfluenceResource =>
   isRecord(value) && typeof value.id === 'string' && typeof value.text === 'string';

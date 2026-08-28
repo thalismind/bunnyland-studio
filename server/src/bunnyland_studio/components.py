@@ -129,6 +129,10 @@ class StudioJournalMomentComponent(Component):
     pinned: bool = False
     media_job_id: str = ""
     media_kind: Literal["", "image", "video"] = ""
+    media_source_event_id: str = ""
+    media_status: Literal["", "queued", "running", "succeeded", "failed", "expired"] = ""
+    media_url: str = ""
+    media_error: str = ""
 
 
 @dataclass(frozen=True)

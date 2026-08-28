@@ -91,6 +91,10 @@ const journal = [
     pinned: false,
     media_job_id: '',
     media_kind: '',
+    media_source_event_id: '',
+    media_status: '',
+    media_url: '',
+    media_error: '',
   },
 ];
 
@@ -101,6 +105,8 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
   page,
 }) => {
   let claimed = false;
+  let mediaRequested = false;
+  let journalReadsAfterMedia = 0;
   const requestedPaths: string[] = [];
   const mediaBodies: unknown[] = [];
   await page.route('**/api/v1/**', route => {
@@ -144,7 +150,23 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
         },
       ]);
     }
-    if (path.endsWith('/journal')) return fulfill(route, journal);
+    if (path.endsWith('/journal')) {
+      if (!mediaRequested) return fulfill(route, journal);
+      journalReadsAfterMedia += 1;
+      const completed = journalReadsAfterMedia > 1;
+      return fulfill(route, [
+        {
+          ...journal[0],
+          media_job_id: 'image-job',
+          media_kind: 'image',
+          media_source_event_id: 'breakdown',
+          media_status: completed ? 'succeeded' : 'queued',
+          media_url: completed
+            ? 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
+            : '',
+        },
+      ]);
+    }
     if (path.endsWith('/influences') && request.method() === 'POST') {
       return fulfill(
         route,
@@ -161,6 +183,7 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
       );
     }
     if (path.includes('/media')) {
+      mediaRequested = true;
       mediaBodies.push(request.postDataJSON() as unknown);
       return fulfill(
         route,
@@ -201,7 +224,10 @@ test('claim, detour, breakdown, mechanic, reflection, and media stay influence-s
     .getByPlaceholder('Add a first-person travel reflection')
     .fill('I learned to listen before turning the key.');
   await page.getByRole('button', { name: 'Write reflection' }).click();
-  await page.getByRole('button', { name: 'Image' }).click();
+  await page.getByRole('button', { name: 'Generate image' }).click();
+
+  await expect(page.getByText('Generating image…')).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Generated scene for:', exact: false })).toBeVisible();
 
   expect(requestedPaths.some(path => path.includes('/commands'))).toBe(false);
   expect(requestedPaths.some(path => path.includes('/queued-actions'))).toBe(false);

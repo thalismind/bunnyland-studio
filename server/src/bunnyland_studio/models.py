@@ -90,6 +90,10 @@ class JournalResource(StudioModel):
     pinned: bool
     media_job_id: str
     media_kind: str
+    media_source_event_id: str
+    media_status: Literal["", "queued", "running", "succeeded", "failed", "expired"]
+    media_url: str
+    media_error: str
 
 
 class ReflectionRequest(StudioModel):
