@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: Server and web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Studio addon
+        uses: actions/checkout@v6
+        with:
+          path: bunnyland-studio
+      - name: Checkout Bunnyland server
+        uses: actions/checkout@v6
+        with:
+          repository: thalismind/bunnyland-server
+          path: bunnyland-server
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.1.0
+      - name: Install server dependencies
+        run: uv sync --project bunnyland-server --extra server
+      - name: Install web dependencies
+        run: npm ci --prefix bunnyland-studio
+      - name: Install Playwright browser
+        run: npm --prefix bunnyland-studio/web exec -- playwright install --with-deps chromium
+      - name: Check Studio addon
+        run: bunnyland-studio/scripts/check
