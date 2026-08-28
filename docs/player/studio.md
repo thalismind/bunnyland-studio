@@ -1,9 +1,9 @@
-# Influencing a road story with Bunnyland Studio
+# Influencing an autonomous character story with Bunnyland Studio
 
 Bunnyland Studio lets one authenticated player follow and influence an autonomous main
 character without taking over that character's actions. You can shape priorities, add memories,
-plan an itinerary, follow the van, and preserve important moments while the existing controller
-continues deciding what the character actually does.
+observe activity, and preserve important moments while the existing controller continues
+deciding what the character actually does.
 
 ## Before you begin
 
@@ -14,8 +14,9 @@ You need:
 - the Studio client published at `/studio/`; and
 - image or video generation configured only if you want those optional media types.
 
-A world created with a Van Waifu generator already has a main character, van, geography, and
-opening itinerary. An administrator can also enable Studio for an existing autonomous character.
+Studio can claim an existing autonomous character without a special world generator. The
+included Van Waifu example story adds a main character, van, geography, and opening itinerary
+for a road-focused experience.
 
 ## Claim the main character
 
@@ -93,7 +94,13 @@ At Roseglass Camp, Mara said the old observatory road is beautiful after rain.
 Memories are private character context. They are not a way to expose another character's hidden
 state or model reasoning.
 
-## Plan an itinerary
+## Use the Van Waifu example story
+
+The remaining route, fuel, breakdown, and travel-journal features in this guide belong to the
+bundled Van Waifu example story. They demonstrate how a story pack can build specialized
+mechanics and projections on top of Studio's general influence claim.
+
+## Plan a Van Waifu itinerary
 
 Create a route by choosing ordered location IDs and an adherence:
 

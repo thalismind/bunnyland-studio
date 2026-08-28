@@ -1,7 +1,7 @@
 [project]
 name = "bunnyland-studio"
 version = "0.1.0"
-description = "Exclusive-influence autonomous Van Waifu studio addon for Bunnyland."
+description = "Exclusive-influence studio and web client for autonomous Bunnyland character stories."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 authors = [

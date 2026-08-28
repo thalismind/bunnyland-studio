@@ -3,7 +3,7 @@
 ![Bunnyland Studio red-line travel banner](https://raw.githubusercontent.com/thalismind/bunnyland-media/main/vector-style/white-background/banner-addon-studio.png)
 
 **Bunnyland Studio** is an out-of-tree Bunnyland addon for following and influencing one
-autonomous main character through a long-running road story. It installs the
+autonomous main character through a long-running story. It installs the
 `bunnyland.studio` server plugin and a standalone Preact application served at
 `/studio/`.
 
@@ -17,8 +17,8 @@ reinterpret every soft influence.
 ## Highlights
 
 - Exclusive, persistent influence ownership tied to an authenticated Bunnyland account.
-- Two Van Waifu world generators: deterministic fictional geography and selected real
-  OpenStreetMap geography.
+- Two world generators for the Van Waifu example story: deterministic fictional geography
+  and selected real OpenStreetMap geography.
 - Soft and core wants, bounded needs, suggestions, and Studio-provenance memories.
 - Intended routes separated from actual travel, including detours and breakdowns.
 - A cinematic red-line map with real Leaflet and fictional SVG renderers.
@@ -27,8 +27,6 @@ reinterpret every soft influence.
 - A sequence-aware observer WebSocket with periodic token and claim reauthorization.
 - Named request and response DTOs; no raw ECS, controller prompts, hidden reasoning, or
   Studio command-submission endpoint.
-
-![Van Waifu on the road](https://raw.githubusercontent.com/thalismind/bunnyland-media/main/full-color/banner-addon-studio-van-waifu.png)
 
 ## Repository layout
 
@@ -59,7 +57,15 @@ changing the autonomous controller.
 
 ## World generators
 
-Studio contributes two generator IDs through Bunnyland's normal world-generation job:
+Studio's influence claims work with existing autonomous characters and are not tied to a
+particular genre, setting, or travel mechanic. As a complete example story, the addon includes
+Van Waifu: an autonomous road narrative with a character, van, itinerary, fuel, breakdowns,
+journaling, and cinematic media direction.
+
+![Van Waifu example story](https://raw.githubusercontent.com/thalismind/bunnyland-media/main/full-color/banner-addon-studio-van-waifu.png)
+
+The Van Waifu example contributes two generator IDs through Bunnyland's normal
+world-generation job:
 
 - `studio-van-waifu-fictional` creates a deterministic connected road network with
   towns, local branches, services, fuel stops, camps, attractions, repair locations, and
@@ -68,7 +74,7 @@ Studio contributes two generator IDs through Bunnyland's normal world-generation
   performs bounded Overpass POI discovery, persists coordinates and attribution, and
   reports range gaps instead of inventing real services.
 
-Both use the same Van Waifu blueprint:
+Both example generators use the same Van Waifu blueprint:
 
 - character name, pronouns, appearance, persona, and travel motivation;
 - van name, description, tank capacity, starting fuel, efficiency, and reliability;

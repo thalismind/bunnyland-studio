@@ -2,7 +2,9 @@
 
 Bunnyland Studio combines an out-of-tree Bunnyland server plugin with a static browser client.
 It gives one authenticated account an exclusive influence claim over one autonomous main
-character while preserving that character's existing controller.
+character while preserving that character's existing controller. Studio works with existing
+autonomous characters; Van Waifu is the bundled example story that demonstrates generators,
+routes, vehicle mechanics, breakdown narratives, and themed media.
 
 ## Security model
 
@@ -66,9 +68,10 @@ A reverse proxy needs:
 Do not place a second authentication proxy in front of only the WebSocket route unless it
 preserves Bunnyland's bearer/session credentials and origin checks.
 
-## Choose a generator
+## Configure the Van Waifu example story
 
-Studio registers:
+Studio itself does not require a special world generator. The included Van Waifu example story
+registers:
 
 - `studio-van-waifu-fictional`
 - `studio-van-waifu-real`
